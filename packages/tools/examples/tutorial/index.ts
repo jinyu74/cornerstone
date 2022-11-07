@@ -1,3 +1,4 @@
+import { VolumeActor } from './../../../core/src/types/IActor';
 /**
  * WARNING
  * DO NOT REMOVE ANY OF THE BELOW IMPORT STATEMENTS
@@ -13,10 +14,9 @@ import {
 import {
   addTool,
   ToolGroupManager,
-  WindowLevelTool,
   ZoomTool,
   Enums as csToolsEnums,
-  PanTool,
+  BidirectionalTool,
 } from '@cornerstonejs/tools';
 
 import {
@@ -57,14 +57,18 @@ async function run() {
 
   const content = document.getElementById('content');
 
-  const element = document.createElement('div');
+  const element1 = document.createElement('div');
+  element1.oncontextmenu = (e) => e.preventDefault();
+  element1.style.width = '500px';
+  element1.style.height = '500px';
 
-  // Disable the default context menu
-  element.oncontextmenu = (e) => e.preventDefault();
-  element.style.width = '500px';
-  element.style.height = '500px';
+  const element2 = document.createElement('div');
+  element2.oncontextmenu = (e) => e.preventDefault();
+  element2.style.width = '500px';
+  element2.style.height = '500px';
 
-  content.appendChild(element);
+  content.appendChild(element1);
+  content.appendChild(element2);
 
   const renderingEngineId = 'vunoRenderingEngine';
   const renderingEngine = new RenderingEngine(renderingEngineId);
@@ -74,46 +78,48 @@ async function run() {
     imageIds,
   });
 
-  const viewportId = 'CT_AXIAL_STACK';
+  const viewportId1 = 'CT_AXIAL';
+  const viewportId2 = 'CT_SAGITTAL';
 
   const viewportInput = [
     {
-      viewportId,
-      element,
+      viewportId: viewportId1,
+      element: element1,
       type: ViewportType.ORTHOGRAPHIC,
       defaultOptions: {
         orientation: Enums.OrientationAxis.AXIAL,
       },
     },
+    {
+      viewportId: viewportId2,
+      element: element2,
+      type: ViewportType.ORTHOGRAPHIC,
+      defaultOptions: {
+        orientation: Enums.OrientationAxis.SAGITTAL,
+      },
+    },
   ];
 
   renderingEngine.setViewports(viewportInput);
-  volume.load();
 
-  setVolumesForViewports(renderingEngine, [{ volumeId }], [viewportId]);
-  renderingEngine.renderViewports([viewportId]);
-
+  addTool(BidirectionalTool);
   addTool(ZoomTool);
-  addTool(WindowLevelTool);
-  addTool(PanTool);
 
   const toolGroupId = 'vunoToolGroup';
   const toolGroup = ToolGroupManager.createToolGroup(toolGroupId);
 
+  toolGroup.addTool(BidirectionalTool.toolName);
   toolGroup.addTool(ZoomTool.toolName);
-  toolGroup.addTool(WindowLevelTool.toolName);
-  toolGroup.addTool(PanTool.toolName);
+  toolGroup.addViewport(viewportId1, renderingEngineId);
+  toolGroup.addViewport(viewportId2, renderingEngineId);
 
-  toolGroup.addViewport(viewportId, renderingEngineId);
-
-  toolGroup.setToolActive(WindowLevelTool.toolName, {
+  toolGroup.setToolActive(BidirectionalTool.toolName, {
     bindings: [
       {
         mouseButton: csToolsEnums.MouseBindings.Primary,
       },
     ],
   });
-
   toolGroup.setToolActive(ZoomTool.toolName, {
     bindings: [
       {
@@ -122,15 +128,25 @@ async function run() {
     ],
   });
 
-  toolGroup.setToolActive(PanTool.toolName, {
-    bindings: [
+  volume.load();
+
+  setVolumesForViewports(
+    renderingEngine,
+    [
       {
-        mouseButton: csToolsEnums.MouseBindings.Auxiliary,
+        volumeId,
+        callback: ({ volumeActor }) => {
+          volumeActor
+            .getProperty()
+            .getRGBTransferFunction(0)
+            .setMappingRange(-180, 220);
+        },
       },
     ],
-  });
+    [viewportId1, viewportId2]
+  );
 
-  console.warn(toolGroup.getViewportsInfo());
+  renderingEngine.renderViewports([viewportId1, viewportId2]);
 }
 
 run();
