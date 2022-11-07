@@ -6,22 +6,22 @@
 
 import {
   RenderingEngine,
-  Types,
+  // Types,
   Enums,
-  setVolumesForViewports,
-  volumeLoader,
+  // setVolumesForViewports,
+  // volumeLoader,
 } from '@cornerstonejs/core';
-import {
-  addTool,
-  BrushTool,
-  SegmentationDisplayTool,
-  BidirectionalTool,
-  ToolGroupManager,
-  WindowLevelTool,
-  ZoomTool,
-  segmentation,
-  Enums as csToolsEnums,
-} from '@cornerstonejs/tools';
+// import {
+//   addTool,
+//   BrushTool,
+//   SegmentationDisplayTool,
+//   BidirectionalTool,
+//   ToolGroupManager,
+//   WindowLevelTool,
+//   ZoomTool,
+//   segmentation,
+//   Enums as csToolsEnums,
+// } from '@cornerstonejs/tools';
 import {
   initDemo,
   createImageIdsAndCacheMetaData,
@@ -48,26 +48,45 @@ async function run() {
   // Init Cornerstone and related libraries
   await initDemo();
 
-  /**
-   *
-   *
-   *
-   *
-   *
-   *
-   *
-   *
-   * Copy-paste the code from tutorials below to try them locally.
-   * You can run the tutorial after by running `yarn run example tutorial` when
-   * you are at the root of the tools package directory.
-   *
-   *
-   *
-   *
-   *
-   *
-   *
-   */
+  // Get Cornerstone imageIds and fetch metadata into RAM
+  const imageIds = await createImageIdsAndCacheMetaData({
+    StudyInstanceUID:
+      '1.3.6.1.4.1.14519.5.2.1.7009.2403.334240657131972136850343327463',
+    SeriesInstanceUID:
+      '1.3.6.1.4.1.14519.5.2.1.7009.2403.226151125820845824875394858561',
+    wadoRsRoot: 'https://d3t6nz73ql33tx.cloudfront.net/dicomweb',
+    type: 'STACK',
+  });
+
+  const content = document.getElementById('content');
+  const element = document.createElement('div');
+
+  element.style.width = '500px';
+  element.style.height = '500px';
+
+  content.appendChild(element);
+
+  const renderingEngineId = 'vunoRenderingEngine';
+  const renderingEngine = new RenderingEngine(renderingEngineId);
+
+  const viewportId = 'CT_AXIAL_STACK';
+
+  const viewportInput = [
+    {
+      viewportId,
+      element,
+      type: ViewportType.STACK,
+    },
+  ];
+
+  // renderingEngine.enableElement(viewportInput);
+  renderingEngine.setViewports(viewportInput);
+
+  const viewport = renderingEngine.getViewport(viewportId);
+  viewport.setStack(imageIds, 60);
+  viewport.render();
+
+  console.warn(viewport.getCurrentImageId());
 }
 
 run();
