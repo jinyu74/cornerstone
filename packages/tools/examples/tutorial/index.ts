@@ -4,7 +4,12 @@
  * SOME ARE USED FOR SOME OF THE TUTORIALS, AND WILL BREAK IF REMOVED
  */
 
-import { RenderingEngine, Enums } from '@cornerstonejs/core';
+import {
+  RenderingEngine,
+  Enums,
+  volumeLoader,
+  setVolumesForViewports,
+} from '@cornerstonejs/core';
 import {
   addTool,
   ToolGroupManager,
@@ -64,19 +69,29 @@ async function run() {
   const renderingEngineId = 'vunoRenderingEngine';
   const renderingEngine = new RenderingEngine(renderingEngineId);
 
+  const volumeId = 'cornerstoneStreamingImageVolume: vunoVolume';
+  const volume = await volumeLoader.createAndCacheVolume(volumeId, {
+    imageIds,
+  });
+
   const viewportId = 'CT_AXIAL_STACK';
 
-  const viewportInput = {
-    viewportId,
-    element,
-    type: ViewportType.STACK,
-  };
+  const viewportInput = [
+    {
+      viewportId,
+      element,
+      type: ViewportType.ORTHOGRAPHIC,
+      defaultOptions: {
+        orientation: Enums.OrientationAxis.AXIAL,
+      },
+    },
+  ];
 
-  renderingEngine.enableElement(viewportInput);
+  renderingEngine.setViewports(viewportInput);
+  volume.load();
 
-  const viewport = renderingEngine.getViewport(viewportId);
-  viewport.setStack(imageIds);
-  viewport.render();
+  setVolumesForViewports(renderingEngine, [{ volumeId }], [viewportId]);
+  renderingEngine.renderViewports([viewportId]);
 
   addTool(ZoomTool);
   addTool(WindowLevelTool);
