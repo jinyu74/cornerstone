@@ -6,22 +6,11 @@
 
 import {
   RenderingEngine,
-  // Types,
   Enums,
-  // setVolumesForViewports,
-  // volumeLoader,
+  volumeLoader,
+  setVolumesForViewports,
 } from '@cornerstonejs/core';
-// import {
-//   addTool,
-//   BrushTool,
-//   SegmentationDisplayTool,
-//   BidirectionalTool,
-//   ToolGroupManager,
-//   WindowLevelTool,
-//   ZoomTool,
-//   segmentation,
-//   Enums as csToolsEnums,
-// } from '@cornerstonejs/tools';
+
 import {
   initDemo,
   createImageIdsAndCacheMetaData,
@@ -59,34 +48,71 @@ async function run() {
   });
 
   const content = document.getElementById('content');
-  const element = document.createElement('div');
 
-  element.style.width = '500px';
-  element.style.height = '500px';
+  const viewportGrid = document.createElement('div');
+  viewportGrid.style.width = '500px';
+  viewportGrid.style.height = '500px';
 
-  content.appendChild(element);
+  // element for axial view
+  const element1 = document.createElement('div');
+  element1.style.width = '500px';
+  element1.style.height = '500px';
+
+  // element for sagittal view
+  const element2 = document.createElement('div');
+  element2.style.width = '500px';
+  element2.style.height = '500px';
+
+  viewportGrid.appendChild(element1);
+  viewportGrid.appendChild(element2);
+
+  content.appendChild(viewportGrid);
 
   const renderingEngineId = 'vunoRenderingEngine';
   const renderingEngine = new RenderingEngine(renderingEngineId);
 
-  const viewportId = 'CT_AXIAL_STACK';
+  const volumeId = 'cornerstoneStreamingImageVolume: vunoVolume';
 
-  const viewportInput = [
+  // Define a volume in memory
+  const volume = await volumeLoader.createAndCacheVolume(volumeId, {
+    imageIds,
+  });
+
+  const viewportId1 = 'CT_AXIAL';
+  const viewportId2 = 'CT_SAGITTAL';
+
+  const viweportInput = [
     {
-      viewportId,
-      element,
-      type: ViewportType.STACK,
+      viewportId: viewportId1,
+      element: element1,
+      type: ViewportType.ORTHOGRAPHIC,
+      defaultOptions: {
+        orientation: Enums.OrientationAxis.AXIAL,
+      },
+    },
+    {
+      viewportId: viewportId2,
+      element: element2,
+      type: ViewportType.ORTHOGRAPHIC,
+      defaultOptions: {
+        orientation: Enums.OrientationAxis.SAGITTAL,
+      },
     },
   ];
 
-  // renderingEngine.enableElement(viewportInput);
-  renderingEngine.setViewports(viewportInput);
+  renderingEngine.setViewports(viweportInput);
 
-  const viewport = renderingEngine.getViewport(viewportId);
-  viewport.setStack(imageIds, 60);
-  viewport.render();
+  volume.load();
 
-  console.warn(viewport.getCurrentImageId());
+  setVolumesForViewports(
+    renderingEngine,
+    [{ volumeId }],
+    [viewportId1, viewportId2]
+  );
+
+  // Render the image
+  renderingEngine.renderViewports([viewportId1, viewportId2]);
+  console.warn(renderingEngine.getViewports());
 }
 
 run();
