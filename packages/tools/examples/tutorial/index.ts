@@ -4,12 +4,15 @@
  * SOME ARE USED FOR SOME OF THE TUTORIALS, AND WILL BREAK IF REMOVED
  */
 
+import { RenderingEngine, Enums } from '@cornerstonejs/core';
 import {
-  RenderingEngine,
-  Enums,
-  volumeLoader,
-  setVolumesForViewports,
-} from '@cornerstonejs/core';
+  addTool,
+  ToolGroupManager,
+  WindowLevelTool,
+  ZoomTool,
+  Enums as csToolsEnums,
+  PanTool,
+} from '@cornerstonejs/tools';
 
 import {
   initDemo,
@@ -49,70 +52,70 @@ async function run() {
 
   const content = document.getElementById('content');
 
-  const viewportGrid = document.createElement('div');
-  viewportGrid.style.width = '500px';
-  viewportGrid.style.height = '500px';
+  const element = document.createElement('div');
 
-  // element for axial view
-  const element1 = document.createElement('div');
-  element1.style.width = '500px';
-  element1.style.height = '500px';
+  // Disable the default context menu
+  element.oncontextmenu = (e) => e.preventDefault();
+  element.style.width = '500px';
+  element.style.height = '500px';
 
-  // element for sagittal view
-  const element2 = document.createElement('div');
-  element2.style.width = '500px';
-  element2.style.height = '500px';
-
-  viewportGrid.appendChild(element1);
-  viewportGrid.appendChild(element2);
-
-  content.appendChild(viewportGrid);
+  content.appendChild(element);
 
   const renderingEngineId = 'vunoRenderingEngine';
   const renderingEngine = new RenderingEngine(renderingEngineId);
 
-  const volumeId = 'cornerstoneStreamingImageVolume: vunoVolume';
+  const viewportId = 'CT_AXIAL_STACK';
 
-  // Define a volume in memory
-  const volume = await volumeLoader.createAndCacheVolume(volumeId, {
-    imageIds,
+  const viewportInput = {
+    viewportId,
+    element,
+    type: ViewportType.STACK,
+  };
+
+  renderingEngine.enableElement(viewportInput);
+
+  const viewport = renderingEngine.getViewport(viewportId);
+  viewport.setStack(imageIds);
+  viewport.render();
+
+  addTool(ZoomTool);
+  addTool(WindowLevelTool);
+  addTool(PanTool);
+
+  const toolGroupId = 'vunoToolGroup';
+  const toolGroup = ToolGroupManager.createToolGroup(toolGroupId);
+
+  toolGroup.addTool(ZoomTool.toolName);
+  toolGroup.addTool(WindowLevelTool.toolName);
+  toolGroup.addTool(PanTool.toolName);
+
+  toolGroup.addViewport(viewportId, renderingEngineId);
+
+  toolGroup.setToolActive(WindowLevelTool.toolName, {
+    bindings: [
+      {
+        mouseButton: csToolsEnums.MouseBindings.Primary,
+      },
+    ],
   });
 
-  const viewportId1 = 'CT_AXIAL';
-  const viewportId2 = 'CT_SAGITTAL';
-
-  const viweportInput = [
-    {
-      viewportId: viewportId1,
-      element: element1,
-      type: ViewportType.ORTHOGRAPHIC,
-      defaultOptions: {
-        orientation: Enums.OrientationAxis.AXIAL,
+  toolGroup.setToolActive(ZoomTool.toolName, {
+    bindings: [
+      {
+        mouseButton: csToolsEnums.MouseBindings.Secondary,
       },
-    },
-    {
-      viewportId: viewportId2,
-      element: element2,
-      type: ViewportType.ORTHOGRAPHIC,
-      defaultOptions: {
-        orientation: Enums.OrientationAxis.SAGITTAL,
+    ],
+  });
+
+  toolGroup.setToolActive(PanTool.toolName, {
+    bindings: [
+      {
+        mouseButton: csToolsEnums.MouseBindings.Auxiliary,
       },
-    },
-  ];
+    ],
+  });
 
-  renderingEngine.setViewports(viweportInput);
-
-  volume.load();
-
-  setVolumesForViewports(
-    renderingEngine,
-    [{ volumeId }],
-    [viewportId1, viewportId2]
-  );
-
-  // Render the image
-  renderingEngine.renderViewports([viewportId1, viewportId2]);
-  console.warn(renderingEngine.getViewports());
+  console.warn(toolGroup.getViewportsInfo());
 }
 
 run();
