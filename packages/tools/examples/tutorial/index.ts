@@ -17,6 +17,9 @@ import {
   ZoomTool,
   Enums as csToolsEnums,
   BidirectionalTool,
+  SegmentationDisplayTool,
+  BrushTool,
+  segmentation,
 } from '@cornerstonejs/tools';
 
 import {
@@ -57,80 +60,114 @@ async function run() {
 
   const content = document.getElementById('content');
 
+  const viewportGrid = document.createElement('div');
+  viewportGrid.style.display = 'flex';
+  viewportGrid.style.flexDirection = 'row';
+
   const element1 = document.createElement('div');
-  element1.oncontextmenu = (e) => e.preventDefault();
   element1.style.width = '500px';
   element1.style.height = '500px';
 
   const element2 = document.createElement('div');
-  element2.oncontextmenu = (e) => e.preventDefault();
   element2.style.width = '500px';
   element2.style.height = '500px';
 
-  content.appendChild(element1);
-  content.appendChild(element2);
+  const element3 = document.createElement('div');
+  element3.style.width = '500px';
+  element3.style.height = '500px';
 
-  const renderingEngineId = 'vunoRenderingEngine';
-  const renderingEngine = new RenderingEngine(renderingEngineId);
+  viewportGrid.appendChild(element1);
+  viewportGrid.appendChild(element2);
+  viewportGrid.appendChild(element3);
 
-  const volumeId = 'cornerstoneStreamingImageVolume: vunoVolume';
-  const volume = await volumeLoader.createAndCacheVolume(volumeId, {
-    imageIds,
-  });
+  content.appendChild(viewportGrid);
 
-  const viewportId1 = 'CT_AXIAL';
-  const viewportId2 = 'CT_SAGITTAL';
+  addTool(SegmentationDisplayTool);
+  addTool(BrushTool);
 
-  const viewportInput = [
-    {
-      viewportId: viewportId1,
-      element: element1,
-      type: ViewportType.ORTHOGRAPHIC,
-      defaultOptions: {
-        orientation: Enums.OrientationAxis.AXIAL,
-      },
-    },
-    {
-      viewportId: viewportId2,
-      element: element2,
-      type: ViewportType.ORTHOGRAPHIC,
-      defaultOptions: {
-        orientation: Enums.OrientationAxis.SAGITTAL,
-      },
-    },
-  ];
-
-  renderingEngine.setViewports(viewportInput);
-
-  addTool(BidirectionalTool);
-  addTool(ZoomTool);
-
-  const toolGroupId = 'vunoToolGroup';
+  const toolGroupId = 'CT_TOOLGROUP';
   const toolGroup = ToolGroupManager.createToolGroup(toolGroupId);
 
-  toolGroup.addTool(BidirectionalTool.toolName);
-  toolGroup.addTool(ZoomTool.toolName);
-  toolGroup.addViewport(viewportId1, renderingEngineId);
-  toolGroup.addViewport(viewportId2, renderingEngineId);
+  toolGroup.addTool(SegmentationDisplayTool.toolName);
+  toolGroup.addTool(BrushTool.toolName);
 
-  toolGroup.setToolActive(BidirectionalTool.toolName, {
+  toolGroup.setToolEnabled(SegmentationDisplayTool.toolName);
+  toolGroup.setToolActive(BrushTool.toolName, {
     bindings: [
       {
         mouseButton: csToolsEnums.MouseBindings.Primary,
       },
     ],
   });
-  toolGroup.setToolActive(ZoomTool.toolName, {
-    bindings: [
-      {
-        mouseButton: csToolsEnums.MouseBindings.Secondary,
-      },
-    ],
+
+  const volumeName = 'CT_VOLUME_ID';
+  const volumeLoaderScheme = 'cornerstoneStreamingImageVolume';
+  const volumeId = `${volumeLoaderScheme}:${volumeName}`;
+
+  const volume = await volumeLoader.createAndCacheVolume(volumeId, {
+    imageIds,
   });
+
+  const segmentationId = 'VUNO_SEGMENTATION_ID';
+  await volumeLoader.createAndCacheDerivedVolume(volumeId, {
+    volumeId: segmentationId,
+  });
+
+  segmentation.addSegmentations([
+    {
+      segmentationId,
+      representation: {
+        type: csToolsEnums.SegmentationRepresentations.Labelmap,
+        data: {
+          volumeId: segmentationId,
+        },
+      },
+    },
+  ]);
+
+  const renderingEngineId = 'vunoRenderingEngine';
+  const renderingEngine = new RenderingEngine(renderingEngineId);
+
+  const viewportId1 = 'CT_AXIAL';
+  const viewportId2 = 'CT_SAGITTAL';
+  const viewportId3 = 'CT_CORONAL';
+
+  const viewportInputArray = [
+    {
+      viewportId: viewportId1,
+      type: ViewportType.ORTHOGRAPHIC,
+      element: element1,
+      defaultOptions: {
+        orientation: Enums.OrientationAxis.AXIAL,
+      },
+    },
+    {
+      viewportId: viewportId2,
+      type: ViewportType.ORTHOGRAPHIC,
+      element: element2,
+      defaultOptions: {
+        orientation: Enums.OrientationAxis.SAGITTAL,
+      },
+    },
+    {
+      viewportId: viewportId3,
+      type: ViewportType.ORTHOGRAPHIC,
+      element: element3,
+      defaultOptions: {
+        orientation: Enums.OrientationAxis.CORONAL,
+      },
+    },
+  ];
+
+  renderingEngine.setViewports(viewportInputArray);
+
+  toolGroup.addViewport(viewportId1, renderingEngineId);
+  toolGroup.addViewport(viewportId2, renderingEngineId);
+  toolGroup.addViewport(viewportId3, renderingEngineId);
 
   volume.load();
 
-  setVolumesForViewports(
+  await setVolumesForViewports(
     renderingEngine,
     [
       {
@@ -143,10 +180,17 @@ async function run() {
         },
       },
     ],
-    [viewportId1, viewportId2]
+    [viewportId1, viewportId2, viewportId3]
   );
 
-  renderingEngine.renderViewports([viewportId1, viewportId2]);
+  await segmentation.addSegmentationRepresentations(toolGroupId, [
+    {
+      segmentationId,
+      type: csToolsEnums.SegmentationRepresentations.Labelmap,
+    },
+  ]);
+
+  renderingEngine.renderViewports([viewportId1, viewportId2, viewportId3]);
 }
 
 run();
